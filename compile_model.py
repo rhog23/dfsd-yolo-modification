@@ -1,0 +1,1 @@
+from ultralytics.nn.tasks import ClassificationModel
