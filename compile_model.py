@@ -1,3 +1,3 @@
 from ultralytics.nn.tasks import ClassificationModel
 
-model = ClassificationModel("yolov8n.yaml")
+model = ClassificationModel("yolo12n-ghost-cls.yaml")
