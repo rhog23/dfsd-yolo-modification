@@ -439,7 +439,7 @@ class GhostConv2(nn.Module):
 
         # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
         self.dfc = nn.Sequential(
-            nn.Conv2d(c1, c2, 1, 1, 1, bias=False),
+            nn.Conv2d(c1, c2, k, s, k // 2, bias=False),
             nn.BatchNorm2d(c2),
             nn.Conv2d(
                 c2,
