@@ -421,7 +421,7 @@ class GhostConv2(nn.Module):
         # )
 
         # cheap operation (depth wise) -> dw_size = 3 following the original GhostNetV2 implementation
-        self.cv2 = Conv(c_, c_, 3, 1, 3//2, c_, act=act)
+        self.cv2 = Conv(c_, c_, 3, 1, 3 // 2, c_, act=act)
         # # Original code
         # self.cheap_operation = nn.Sequential(
         #     nn.Conv2d(
@@ -438,7 +438,7 @@ class GhostConv2(nn.Module):
         # )
 
         # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
-        self.dfc = nn.Sequential(
+        self.short_conv = nn.Sequential(
             nn.Conv2d(c1, c2, k, s, k // 2, bias=False),
             nn.BatchNorm2d(c2),
             nn.Conv2d(
@@ -462,9 +462,11 @@ class GhostConv2(nn.Module):
             ),
         )
 
+        self.gate_fn = nn.Sigmoid()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply GhostConv V2 to input tensor"""
-        res = self.dfc(F.avg_pool2d(x, 2, 2))
+        res = self.short_conv(x)
         x1 = self.cv1(x)  # applies primary conv to input
         # x1 = self.primary_conv(x)  # applies primary conv to input
         # print("x1 shape: ", x1.shape)
@@ -473,10 +475,14 @@ class GhostConv2(nn.Module):
         # print("x2 shape: ", x2.shape)
 
         out = torch.cat((x1, x2), dim=1)
-
-        return out[:, : self.oup, :, :] * F.interpolate(
-            nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
-        )
+        
+        out = out[:, :self.oup, :, :]
+        
+        # return out[:, : self.oup, :, :] * F.interpolate(
+        #     nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
+        # )
+        
+        return out * self.gate_fn(res)
 
 
 class RepConv(nn.Module):
