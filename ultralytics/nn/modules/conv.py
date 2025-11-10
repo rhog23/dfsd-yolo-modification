@@ -409,11 +409,33 @@ class GhostConv2(nn.Module):
         c_ = c2 // 2  # simplifies lines 91-93
 
         self.oup = c2
+        # init_channels = math.ceil(c2 / 2)
+        # new_channels = init_channels * (2 - 1)
         # primary convolution
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
+        # # Original code
+        # self.primary_conv = nn.Sequential(
+        #     nn.Conv2d(c1, init_channels, k, s, k // 2, bias=False),
+        #     nn.BatchNorm2d(init_channels),
+        #     nn.SiLU(inplace=True),
+        # )
 
         # cheap operation (depth wise) -> dw_size = 3 following the original GhostNetV2 implementation
-        self.cv2 = Conv(c_, c_, 3, 1, c_, act=act)
+        self.cv2 = Conv(c_, c_, 3, 1, 3//2, c_, act=act)
+        # # Original code
+        # self.cheap_operation = nn.Sequential(
+        #     nn.Conv2d(
+        #         init_channels,
+        #         new_channels,
+        #         3,
+        #         1,
+        #         3 // 2,
+        #         groups=init_channels,
+        #         bias=False,
+        #     ),
+        #     nn.BatchNorm2d(new_channels),
+        #     nn.SiLU(inplace=True),
+        # )
 
         # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
         self.dfc = nn.Sequential(
@@ -444,9 +466,13 @@ class GhostConv2(nn.Module):
         """Apply GhostConv V2 to input tensor"""
         res = self.dfc(F.avg_pool2d(x, 2, 2))
         x1 = self.cv1(x)  # applies primary conv to input
+        # x1 = self.primary_conv(x)  # applies primary conv to input
+        # print("x1 shape: ", x1.shape)
         x2 = self.cv2(x1)  # applies cheap operation
+        # x2 = self.cheap_operation(x1)  # applies cheap operation
+        # print("x2 shape: ", x2.shape)
 
-        out = torch.cat([x1, x2], dim=1)
+        out = torch.cat((x1, x2), dim=1)
 
         return out[:, : self.oup, :, :] * F.interpolate(
             nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
