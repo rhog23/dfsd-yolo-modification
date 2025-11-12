@@ -532,6 +532,8 @@ class GhostBottleneck2(nn.Module):
     def __init__(self, c1: int, c2: int, k: int, s: int, dw_kernel: int = 3):
         super().__init__()
         
+        
+        
         # shortcut
         if (c1 == c2 and s == 1):
             self.shorcut = nn.Sequential()
@@ -543,6 +545,7 @@ class GhostBottleneck2(nn.Module):
                 nn.Conv2d(c1, c2, 1, stride=1, padding=0, bias=False),
                 nn.BatchNorm2d(c2),
             )
+            print("shortcut in GhostBottleneck V2 created")
     
     def forward(self, x: torch_Tensor) -> torch.Tensor:
         
