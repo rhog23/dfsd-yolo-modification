@@ -1,8 +1,9 @@
 from ultralytics.nn.tasks import ClassificationModel
 from torchsummary import summary
 
-model = ClassificationModel("yolo12s-ghost-cls.yaml")
-# summary(model, (3, 224, 224)) 
+model = ClassificationModel("yolo12n-ghost-cls.yaml")
+# print(model)
+# summary(model, (3, 224, 224))
 
 # Count GhostConv layers
 ghost_count = 0

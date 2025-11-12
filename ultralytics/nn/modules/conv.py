@@ -57,6 +57,13 @@ def _make_divisible(v, divisor, min_value=None):
     return new_v
 
 
+def hard_sigmoid(x, inplace: bool = False):
+    if inplace:
+        return x.add_(3.0).clamp_(0.0, 6.0).div_(6.0)
+    else:
+        return F.relu6(x + 3.0) / 6.0
+
+
 class Conv(nn.Module):
     """Standard convolution module with batch normalization and activation.
 
@@ -475,13 +482,13 @@ class GhostConv2(nn.Module):
         # print("x2 shape: ", x2.shape)
 
         out = torch.cat((x1, x2), dim=1)
-        
-        out = out[:, :self.oup, :, :]
-        
+
+        out = out[:, : self.oup, :, :]
+
         # return out[:, : self.oup, :, :] * F.interpolate(
         #     nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
         # )
-        
+
         return out * self.gate_fn(res)
 
 
@@ -764,6 +771,36 @@ class CBAM(nn.Module):
             (torch.Tensor): Attended output tensor.
         """
         return self.spatial_attention(self.channel_attention(x))
+
+
+class SqueezeExcite(nn.Module):
+    """Implements Squeeze and Excitation mechanism. Ref: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py"""
+
+    def __init__(
+        self,
+        c1,
+        se_ratio=0.25,
+        reduced_base_chs=None,
+        gate_fn=hard_sigmoid,
+        divisor=4,
+        **_,
+    ):
+        super().__init__()
+        self.gate_fn = gate_fn
+        reduced_chs = _make_divisible((reduced_base_chs or c1) * se_ratio, divisor)
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv_reduce = nn.Conv2d(c1, reduced_chs, 1, bias=True)
+        self.act1 = nn.ReLU(inplace=True)
+        self.conv_expand = nn.Conv2d(reduced_chs, c1, 1, bias=True)
+
+    def forward(self, x):
+        x_se = self.avg_pool(x)
+        x_se = self.conv_reduce(x_se)
+        x_se = self.act1(x_se)
+        x_se = self.conv_expand(x_se)
+        x = x * self.gate_fn(x_se)
+
+        return x
 
 
 class Concat(nn.Module):

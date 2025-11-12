@@ -1603,12 +1603,14 @@ def parse_model(d, ch, verbose=True):
                 n = 1
             if m is C3k2:  # for M/L/X sizes
                 legacy = False
-                if scale in "mlx":
+                if scale in "mlx": # change from default mlx to all variations
                     args[3] = True
+                    # print("C3k2 added")
             if m is A2C2f:
                 legacy = False
-                if scale in "lx":  # for L/X sizes
+                if scale in "lx":  # for L/X sizes [change from default lx to all variations]
                     args.extend((True, 1.2))
+                    # print("A2C2f added")
             if m is C2fCIB:
                 legacy = False
         elif m is AIFI:

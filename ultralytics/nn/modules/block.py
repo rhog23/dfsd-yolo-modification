@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
-from .conv import Conv, DWConv, GhostConv, LightConv, RepConv, autopad
+from .conv import Conv, DWConv, GhostConv, GhostConv2, LightConv, RepConv, autopad
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -37,6 +37,7 @@ __all__ = (
     "C2fPSA",
     "C3Ghost",
     "C3k2",
+    "C3k2Ghost",
     "C3x",
     "CBFuse",
     "CBLinear",
@@ -526,6 +527,25 @@ class GhostBottleneck(nn.Module):
         """Apply skip connection and concatenation to input tensor."""
         return self.conv(x) + self.shortcut(x)
 
+class GhostBottleneck2(nn.Module):
+    """GhostBottleneckv2. Ref: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py """
+    def __init__(self, c1: int, c2: int, k: int, s: int, dw_kernel: int = 3):
+        super().__init__()
+        
+        # shortcut
+        if (c1 == c2 and s == 1):
+            self.shorcut = nn.Sequential()
+        else:
+            self.shorcut = nn.Sequential(
+                nn.Conv2d(c1, c1, dw_kernel, stride=s,
+                       padding=(dw_kernel-1)//2, groups=c1, bias=False),
+                nn.BatchNorm2d(c1),
+                nn.Conv2d(c1, c2, 1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(c2),
+            )
+    
+    def forward(self, x: torch_Tensor) -> torch.Tensor:
+        
 
 class Bottleneck(nn.Module):
     """Standard bottleneck."""
@@ -1253,6 +1273,7 @@ class C3k2(C2f):
             shortcut (bool): Whether to use shortcut connections.
         """
         super().__init__(c1, c2, n, shortcut, g, e)
+        print("c3k") if c3k else print("none")
         self.m = nn.ModuleList(
             (
                 C3k(self.c, self.c, 2, shortcut, g)
@@ -1261,6 +1282,9 @@ class C3k2(C2f):
             )
             for _ in range(n)
         )
+        
+class C3k2Ghost(C2f):
+    """Implementation of C3k2 with GhostModuleV2."""
 
 
 class C3k(C3):
@@ -2046,6 +2070,7 @@ class A2C2f(nn.Module):
             if a2 and residual
             else None
         )
+        print("a2") if a2 else print("none")
         self.m = nn.ModuleList(
             (
                 nn.Sequential(
