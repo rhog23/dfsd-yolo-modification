@@ -1277,7 +1277,7 @@ class C3k2(C2f):
             shortcut (bool): Whether to use shortcut connections.
         """
         super().__init__(c1, c2, n, shortcut, g, e)
-        print("c3k") if c3k else print("none")
+        # print("c3k") if c3k else print("none")
         self.m = nn.ModuleList(
             (
                 C3k(self.c, self.c, 2, shortcut, g)
@@ -2074,7 +2074,7 @@ class A2C2f(nn.Module):
             if a2 and residual
             else None
         )
-        print("a2") if a2 else print("none")
+        # print("a2") if a2 else print("none")
         self.m = nn.ModuleList(
             (
                 nn.Sequential(

@@ -424,13 +424,13 @@ class GhostConv2(nn.Module):
 
         self.oup = c2
         self.mode = mode
-        print(f"Ghost Conv Mode: {self.mode}")
+        # print(f"Ghost Conv Mode: {self.mode}") # uncomment for debugging
 
         # primary convolution
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
 
         # cheap operation (depth wise) -> dw_size = 3 following the original GhostNetV2 implementation
-        self.cv2 = Conv(c_, c_, 3, 1, 3 // 2, c_, act=act)
+        self.cv2 = Conv(c_, c_, 5, 1, None, c_, act=act)
 
         if self.mode == "attn":
             # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
@@ -489,7 +489,7 @@ class GhostConv2(nn.Module):
             #     nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
             # )
 
-            return out * res
+            return out * (1 + self.gamma * (res - 0.5))
 
         return out
 
