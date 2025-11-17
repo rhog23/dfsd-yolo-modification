@@ -408,7 +408,14 @@ class GhostConv2(nn.Module):
     """
 
     def __init__(
-        self, c1: int, c2: int, k: int = 1, s: int = 1, g: int = 1, act: bool = True
+        self,
+        c1: int,
+        c2: int,
+        k: int = 1,
+        s: int = 1,
+        g: int = 1,
+        act: bool = True,
+        mode: str = "original",
     ):
         """Implements GhostModule with attention (DFC)"""
         super().__init__()
@@ -416,80 +423,75 @@ class GhostConv2(nn.Module):
         c_ = c2 // 2  # simplifies lines 91-93
 
         self.oup = c2
-        # init_channels = math.ceil(c2 / 2)
-        # new_channels = init_channels * (2 - 1)
+        self.mode = mode
+        print(f"Ghost Conv Mode: {self.mode}")
+
         # primary convolution
         self.cv1 = Conv(c1, c_, k, s, None, g, act=act)
-        # # Original code
-        # self.primary_conv = nn.Sequential(
-        #     nn.Conv2d(c1, init_channels, k, s, k // 2, bias=False),
-        #     nn.BatchNorm2d(init_channels),
-        #     nn.SiLU(inplace=True),
-        # )
 
         # cheap operation (depth wise) -> dw_size = 3 following the original GhostNetV2 implementation
         self.cv2 = Conv(c_, c_, 3, 1, 3 // 2, c_, act=act)
-        # # Original code
-        # self.cheap_operation = nn.Sequential(
-        #     nn.Conv2d(
-        #         init_channels,
-        #         new_channels,
-        #         3,
-        #         1,
-        #         3 // 2,
-        #         groups=init_channels,
-        #         bias=False,
-        #     ),
-        #     nn.BatchNorm2d(new_channels),
-        #     nn.SiLU(inplace=True),
-        # )
 
-        # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
-        self.short_conv = nn.Sequential(
-            nn.Conv2d(c1, c2, k, s, k // 2, bias=False),
-            nn.BatchNorm2d(c2),
-            nn.Conv2d(
-                c2,
-                c2,
-                kernel_size=(1, 5),
-                stride=1,
-                padding=(0, 2),
-                groups=c2,
-                bias=False,
-            ),
-            nn.BatchNorm2d(c2),
-            nn.Conv2d(
-                c2,
-                c2,
-                kernel_size=(5, 1),
-                stride=1,
-                padding=(2, 0),
-                groups=c2,
-                bias=False,
-            ),
-        )
+        if self.mode == "attn":
+            # dfc attention (refer to the original implementation as ultralytics' Conv doesn't support tuple as kernel)
+            self.short_conv = nn.Sequential(
+                nn.Conv2d(c1, c2, k, s, k // 2, bias=True),
+                # nn.BatchNorm2d(c2),
+                nn.Conv2d(
+                    c2,
+                    c2,
+                    kernel_size=(1, 5),
+                    stride=1,
+                    padding=(0, 2),
+                    groups=c2,
+                    bias=True,
+                ),
+                # nn.BatchNorm2d(c2),
+                nn.Conv2d(
+                    c2,
+                    c2,
+                    kernel_size=(5, 1),
+                    stride=1,
+                    padding=(2, 0),
+                    groups=c2,
+                    bias=True,
+                ),
+            )
 
-        self.gate_fn = nn.Sigmoid()
+            self.gate_fn = nn.Sigmoid()
+            self.gamma = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply GhostConv V2 to input tensor"""
-        res = self.short_conv(x)
-        x1 = self.cv1(x)  # applies primary conv to input
-        # x1 = self.primary_conv(x)  # applies primary conv to input
-        # print("x1 shape: ", x1.shape)
-        x2 = self.cv2(x1)  # applies cheap operation
-        # x2 = self.cheap_operation(x1)  # applies cheap operation
-        # print("x2 shape: ", x2.shape)
 
+        x1 = self.cv1(x)  # applies primary conv to input
+        x2 = self.cv2(x1)  # applies cheap operation
         out = torch.cat((x1, x2), dim=1)
 
         out = out[:, : self.oup, :, :]
 
-        # return out[:, : self.oup, :, :] * F.interpolate(
-        #     nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
-        # )
+        if self.mode == "attn":
+            _, _, H, W = x.shape
 
-        return out * self.gate_fn(res)
+            # switch to adaptive pooling to adapt dynamically to output changes (if we were to follow using the original avg_pool, then it might produce error)
+            target_h = max(1, min(H // 2, 2))
+            target_w = max(1, min(W // 2, 2))
+            pool = F.adaptive_avg_pool2d(x, (target_h, target_w))
+
+            res = self.short_conv(pool)
+            res = self.gate_fn(res)
+
+            # still, following the original implementation which is to resize the res to follows the out shape if needed
+            if res.shape[-2:] != out.shape[-2:]:
+                res = F.interpolate(res, size=(out.shape[-2:]), mode="nearest")
+
+            # return out[:, : self.oup, :, :] * F.interpolate(
+            #     nn.SiLU()(res), size=(out.shape[-2], out.shape[-1]), mode="nearest"
+            # )
+
+            return out * res
+
+        return out
 
 
 class RepConv(nn.Module):

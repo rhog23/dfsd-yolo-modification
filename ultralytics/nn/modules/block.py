@@ -43,6 +43,7 @@ __all__ = (
     "CBLinear",
     "ContrastiveHead",
     "GhostBottleneck",
+    # "GhostBottleneckV2",
     "HGBlock",
     "HGStem",
     "ImagePoolingAttn",
@@ -527,27 +528,27 @@ class GhostBottleneck(nn.Module):
         """Apply skip connection and concatenation to input tensor."""
         return self.conv(x) + self.shortcut(x)
 
-class GhostBottleneck2(nn.Module):
-    """GhostBottleneckv2. Ref: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py """
-    def __init__(self, c1: int, c2: int, k: int, s: int, dw_kernel: int = 3):
-        super().__init__()
+# class GhostBottleneckV2(nn.Module):
+#     """GhostBottleneckV2. Ref: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py """
+#     def __init__(self, c1: int, c2: int, k: int, s: int, dw_kernel: int = 3):
+#         super().__init__()
         
+#         self.ghost1 = 
         
-        
-        # shortcut
-        if (c1 == c2 and s == 1):
-            self.shorcut = nn.Sequential()
-        else:
-            self.shorcut = nn.Sequential(
-                nn.Conv2d(c1, c1, dw_kernel, stride=s,
-                       padding=(dw_kernel-1)//2, groups=c1, bias=False),
-                nn.BatchNorm2d(c1),
-                nn.Conv2d(c1, c2, 1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(c2),
-            )
-            print("shortcut in GhostBottleneck V2 created")
+#         # shortcut
+#         if (c1 == c2 and s == 1):
+#             self.shorcut = nn.Sequential()
+#         else:
+#             self.shorcut = nn.Sequential(
+#                 nn.Conv2d(c1, c1, dw_kernel, stride=s,
+#                        padding=(dw_kernel-1)//2, groups=c1, bias=False),
+#                 nn.BatchNorm2d(c1),
+#                 nn.Conv2d(c1, c2, 1, stride=1, padding=0, bias=False),
+#                 nn.BatchNorm2d(c2),
+#             )
+#             print("shortcut in GhostBottleneck V2 created")
     
-    def forward(self, x: torch_Tensor) -> torch.Tensor:
+#     def forward(self, x: torch_Tensor) -> torch.Tensor:
         
 
 class Bottleneck(nn.Module):

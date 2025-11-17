@@ -1577,6 +1577,7 @@ def parse_model(d, ch, verbose=True):
         }
     )
     for i, (f, n, m, args) in enumerate(d["backbone"] + d["head"]):  # from, number, module, args
+        print(f"Raw Arguments: {args}")
         m = (
             getattr(torch.nn, m[3:])
             if "nn." in m
@@ -1598,6 +1599,7 @@ def parse_model(d, ch, verbose=True):
                 args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
 
             args = [c1, c2, *args[1:]]
+            print(f"Module-based Arguments: {args}")
             if m in repeat_modules:
                 args.insert(2, n)  # number of repeats
                 n = 1
@@ -1649,7 +1651,8 @@ def parse_model(d, ch, verbose=True):
             args = [*args[1:]]
         else:
             c2 = ch[f]
-
+        print(f"Final Arguments: {args}")
+        print(m)
         m_ = torch.nn.Sequential(*(m(*args) for _ in range(n))) if n > 1 else m(*args)  # module
         t = str(m)[8:-2].replace("__main__.", "")  # module type
         m_.np = sum(x.numel() for x in m_.parameters())  # number params
