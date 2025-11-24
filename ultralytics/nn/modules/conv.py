@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 __all__ = (
     "CBAM",
@@ -33,20 +32,16 @@ __all__ = (
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
     """Pad to 'same' shape outputs."""
     if d > 1:
-        k = (
-            d * (k - 1) + 1 if isinstance(k, int) else [d * (x - 1) + 1 for x in k]
-        )  # actual kernel-size
+        k = d * (k - 1) + 1 if isinstance(k, int) else [d * (x - 1) + 1 for x in k]  # actual kernel-size
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
 
 
 def _make_divisible(v, divisor, min_value=None):
-    """
-    This function is taken from the original tf repo.
-    It ensures that all layers have a channel number that is divisible by 8
-    It can be seen here:
-    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """This function is taken from the original tf repo. It ensures that all layers have a channel number that is
+    divisible by 8 It can be seen
+    here: https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py.
     """
     if min_value is None:
         min_value = divisor
@@ -90,15 +85,9 @@ class Conv(nn.Module):
             act (bool | nn.Module): Activation function.
         """
         super().__init__()
-        self.conv = nn.Conv2d(
-            c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False
-        )
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = (
-            self.default_act
-            if act is True
-            else act if isinstance(act, nn.Module) else nn.Identity()
-        )
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
         """Apply convolution, batch normalization and activation to input tensor.
@@ -147,9 +136,7 @@ class Conv2(Conv):
             act (bool | nn.Module): Activation function.
         """
         super().__init__(c1, c2, k, s, p, g=g, d=d, act=act)
-        self.cv2 = nn.Conv2d(
-            c1, c2, 1, s, autopad(1, p, d), groups=g, dilation=d, bias=False
-        )  # add 1x1 conv
+        self.cv2 = nn.Conv2d(c1, c2, 1, s, autopad(1, p, d), groups=g, dilation=d, bias=False)  # add 1x1 conv
 
     def forward(self, x):
         """Apply convolution, batch normalization and activation to input tensor.
@@ -279,11 +266,7 @@ class ConvTranspose(nn.Module):
         super().__init__()
         self.conv_transpose = nn.ConvTranspose2d(c1, c2, k, s, p, bias=not bn)
         self.bn = nn.BatchNorm2d(c2) if bn else nn.Identity()
-        self.act = (
-            self.default_act
-            if act is True
-            else act if isinstance(act, nn.Module) else nn.Identity()
-        )
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
         """Apply transposed convolution, batch normalization and activation to input.
@@ -401,10 +384,10 @@ class GhostConv(nn.Module):
 
 
 class GhostConv2(nn.Module):
-    """
-    Implementation of GhostNetModuleV2
+    """Implementation of GhostNetModuleV2.
 
-    Reference: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py
+    Reference:
+    https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py
     """
 
     def __init__(
@@ -417,7 +400,7 @@ class GhostConv2(nn.Module):
         act: bool = True,
         mode: str = "original",
     ):
-        """Implements GhostModule with attention (DFC)"""
+        """Implements GhostModule with attention (DFC)."""
         super().__init__()
 
         c_ = c2 // 2  # simplifies lines 91-93
@@ -462,8 +445,7 @@ class GhostConv2(nn.Module):
             self.gamma = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply GhostConv V2 to input tensor"""
-
+        """Apply GhostConv V2 to input tensor."""
         x1 = self.cv1(x)  # applies primary conv to input
         x2 = self.cv2(x1)  # applies cheap operation
         out = torch.cat((x1, x2), dim=1)
@@ -512,9 +494,7 @@ class RepConv(nn.Module):
 
     default_act = nn.SiLU()  # default activation
 
-    def __init__(
-        self, c1, c2, k=3, s=1, p=1, g=1, d=1, act=True, bn=False, deploy=False
-    ):
+    def __init__(self, c1, c2, k=3, s=1, p=1, g=1, d=1, act=True, bn=False, deploy=False):
         """Initialize RepConv module with given parameters.
 
         Args:
@@ -534,15 +514,9 @@ class RepConv(nn.Module):
         self.g = g
         self.c1 = c1
         self.c2 = c2
-        self.act = (
-            self.default_act
-            if act is True
-            else act if isinstance(act, nn.Module) else nn.Identity()
-        )
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
-        self.bn = (
-            nn.BatchNorm2d(num_features=c1) if bn and c2 == c1 and s == 1 else None
-        )
+        self.bn = nn.BatchNorm2d(num_features=c1) if bn and c2 == c1 and s == 1 else None
         self.conv1 = Conv(c1, c2, k, s, p=p, g=g, act=False)
         self.conv2 = Conv(c1, c2, 1, s, p=(p - k // 2), g=g, act=False)
 
@@ -776,7 +750,9 @@ class CBAM(nn.Module):
 
 
 class SqueezeExcite(nn.Module):
-    """Implements Squeeze and Excitation mechanism. Ref: https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py"""
+    """Implements Squeeze and Excitation mechanism. Ref:
+    https://github.com/huawei-noah/Efficient-AI-Backbones/blob/master/ghostnetv2_pytorch/model/ghostnetv2_torch.py.
+    """
 
     def __init__(
         self,
